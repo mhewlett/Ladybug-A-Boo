@@ -1,0 +1,560 @@
+import pygame, random, math, sys
+
+from pygame import mixer
+pygame.init()
+'''
+class Crosshair(pygame.sprite.Sprite):
+    def __init__(self,picture):
+        super().__init__()
+        self.image = pygame.image.load(picture)
+        self.rect = self.image.get_rect()
+
+    def update(self):
+        self.rect.center = pygame.mouse.get_pos()
+'''
+
+
+class Player:
+    def __init__(self):
+        self.surface = pygame.image.load('ladybug.png').convert_alpha()
+        self.surfaceU = pygame.transform.rotate(self.surface, 0)
+        self.surfaceD = pygame.transform.rotate(self.surface, 180)
+        self.surfaceR = pygame.transform.rotate(self.surface, 270)
+        self.surfaceL = pygame.transform.rotate(self.surface, 90)
+        self.surfaceUL = pygame.transform.rotate(self.surface, 45)
+        self.surfaceUR = pygame.transform.rotate(self.surface, 315)
+        self.surfaceDL = pygame.transform.rotate(self.surface, 135)
+        self.surfaceDR = pygame.transform.rotate(self.surface, 225)
+
+        self.rect = self.surface.get_rect()
+        self.rect.centerx = 400
+        self.rect.centery = 275
+        self.speed = 10
+
+        self.spawnDelay = 0
+        self.spawnDelayMax = 15
+        self.ammo = []
+        self.ammoTotal = 0
+        self.bullets = []
+
+        self.cd = 10
+        self.cdMax = 10
+        self.isAlive = True
+
+    def move(self, xdir, ydir):
+        self.rect.x += xdir * self.speed
+        self.rect.y += ydir * self.speed
+        if xdir == 0 and ydir == -1:
+            self.surface = self.surfaceU
+        if xdir == 0 and ydir == 1:
+            self.surface = self.surfaceD
+        if xdir == 1 and ydir == 0:
+            self.surface = self.surfaceR
+        if xdir == -1 and ydir == 0:
+            self.surface = self.surfaceL
+
+    def spawnAmmo(self):
+        self.ammo.append(Bullet())
+
+    def moveAmmo(self):
+        for obj in self.ammo:
+            screen.blit(obj.surface, obj.rect)
+
+    def shoot(self):
+        global gameover
+        if self.cd <= 0 and self.ammoTotal and not gameover:
+            self.cd = self.cdMax
+            bullet = self.ammo.pop()
+            bullet_shot = mixer.Sound('Shoot.wav')
+            bullet_shot.play()
+            bullet.rect.x = self.rect.x + self.rect.width / 2 - bullet.rect.width / 2
+            bullet.rect.y = self.rect.y + self.rect.height / 2 - bullet.rect.height / 2
+
+            bullet.getTarg()
+            self.bullets.append(bullet)
+            self.ammoTotal -= 1
+
+    def update(self):
+
+        self.cd -= 1
+        self.spawnDelay -= 1
+        if self.spawnDelay <= 0:
+            self.spawnAmmo()
+            self.spawnDelay = self.spawnDelayMax
+        if self.isAlive:
+            screen.blit(self.surface, self.rect)
+            # Active in scene
+            for obj in self.bullets:
+                obj.travel()
+                screen.blit(obj.surface, obj.rect)
+
+
+class Bullet:
+    def __init__(self):
+        self.surface = pygame.image.load('sphere.png').convert_alpha()
+        self.rect = self.surface.get_rect()
+
+        self.speed = 10.0
+
+    def getTarg(self):
+        cur = pygame.mouse.get_pos()
+
+        xdiff = cur[0] - self.rect.x - self.rect.width / 2
+        ydiff = cur[1] - self.rect.y - self.rect.height / 2
+
+        magnitude = math.sqrt(float(xdiff ** 2 + ydiff ** 2))
+        numFrames = int(magnitude / self.speed)
+
+        self.xmove = xdiff / numFrames
+        self.ymove = ydiff / numFrames
+
+        xtravel = self.xmove * numFrames
+        ytravel = self.ymove * numFrames
+
+        self.rect.x += xdiff - xtravel
+        self.rect.y += ydiff - ytravel
+
+    def travel(self):
+        self.rect.x += self.xmove
+        self.rect.y += self.ymove
+
+
+class Enemy:
+    def __init__(self, img, x, y, speed=0):
+        self.surface = pygame.image.load(img).convert_alpha()
+        self.rect = self.surface.get_rect(center=(x, y))
+
+        self.speed = speed
+
+    def moveSpider(self, ydir):
+        self.rect.y += ydir * self.speed
+        if self.rect.top <= 30:
+            self.rect.y += ydir * self.speed
+        if self.rect.bottom >= 550:
+            self.rect.y -= ydir * self.speed
+
+
+def createAmmo():
+    xammo = random.randint(50, 750)
+    yammo = random.randint(50, 550)
+    ammo = ammoPickup.get_rect(center=(xammo, yammo))
+    return ammo
+
+
+def drawPickup(ammos):
+    for ammo in ammos:
+        screen.blit(ammoPickup, ammo)
+
+
+def pickup(ammos):
+    global numAmmo
+    for ammo in ammos:
+        if ammo.colliderect(ladybug.rect):
+            item_pickup = mixer.Sound('Pickup.wav')
+            item_pickup.play()
+            item_pickup.set_volume(0.3)
+            ammos.remove(ammo)
+            ladybug.ammoTotal += 1
+            numAmmo += 1
+
+
+def displayAmmo():
+    ammoFont = pygame.font.Font('freesansbold.ttf', 32)
+    ammoText = ammoFont.render(str(ladybug.ammoTotal), True, 'white')
+    ammoRect = ammoText.get_rect(center=(85, 560))
+    screen.blit(ammoText, ammoRect)
+    ammoIconRect = ammoPickup.get_rect(midright=(ammoRect.left - 10, ammoRect.centery - 2))
+    screen.blit(ammoPickup, ammoIconRect)
+
+
+def create_web1():
+    web1_x_pos = spider1.rect.x
+    web1_y_pos = spider1.rect.y
+    web1 = web_surface.get_rect(center=(web1_x_pos, web1_y_pos))
+    return web1
+
+
+def create_web2():
+    web2_x_pos = spider2.rect.x
+    web2_y_pos = spider2.rect.y
+    web2 = web_surface.get_rect(center=(web2_x_pos, web2_y_pos))
+    return web2
+
+
+def draw_web1(webs):
+    web1_movement = 5
+    for web in webs:
+        screen.blit(web_surface, (web))
+        web.x += web1_movement
+
+
+def draw_web2(webs):
+    web2_movement = 5
+    for web in webs:
+        screen.blit(web_surface, (web))
+        web.x -= web2_movement
+
+
+def create_ghost1():
+    ghost_x, ghost_y = (-100, random.randint(-100, 700))
+    ghost = ghost_surface1.get_rect(center=(ghost_x, ghost_y))
+    return ghost
+
+
+def create_ghost2():
+    ghost_x, ghost_y = (910, random.randint(-100, 700))
+    ghost = ghost_surface2.get_rect(center=(ghost_x, ghost_y))
+    return ghost
+
+
+def draw_ghost1(ghosts):
+    for ghost in ghosts:
+        screen.blit(ghost_surface1, ghost)
+        ghost.x += ghost_movement
+        if ghost.x > 1000:
+            ghosts.remove(ghost)
+
+
+def draw_ghost2(ghosts):
+    for ghost in ghosts:
+        screen.blit(ghost_surface2, ghost)
+        ghost.x -= ghost_movement
+        if ghost.x < -200:
+            ghosts.remove(ghost)
+
+
+def slow_collision1(webs):
+    for web in webs:
+        if ladybug.rect.colliderect(web):
+            return True
+
+
+def slow_collision2(webs):
+    for web in webs:
+        if ladybug.rect.colliderect(web):
+            return True
+
+
+def death_collision1(ghosts1, ghosts2):
+    global death_token
+    if death_token and (ladybug.rect.colliderect(spider1.rect) or ladybug.rect.colliderect(spider2.rect)):
+        death_shot = mixer.Sound('Damage.wav')
+        death_shot.play()
+        death_shot.set_volume(.7)
+        death_token = False
+        
+        return True
+    for ghost in ghosts1:
+        if ladybug.rect.colliderect(ghost) and death_token:
+            death_shot = mixer.Sound('Damage.wav')
+            death_shot.play()
+            death_shot.set_volume(.7)
+            death_token = False
+            
+            return True
+    for ghost in ghosts2:
+        if ladybug.rect.colliderect(ghost) and death_token:
+            death_shot = mixer.Sound('Damage.wav')
+            death_shot.play()
+            death_shot.set_volume(.7)
+            death_token = False
+            
+            return True
+
+
+def killGhost1(ghosts, bullet):
+    global score
+    for ghost in ghosts:
+        if ghost.colliderect(bullet):
+            score += 1
+            ghost_shot = mixer.Sound('Boom.wav')
+            ghost_shot.play()
+            ghosts.remove(ghost)
+            return True
+
+
+def killGhost2(ghosts, bullet):
+    global score
+    for ghost in ghosts:
+        if ghost.colliderect(bullet):
+            score += 1
+            ghost_shot = mixer.Sound('Boom.wav')
+            ghost_shot.play()
+            ghosts.remove(ghost)
+            return True
+
+
+def game_over():
+    
+        
+    
+    global score
+    global highScore
+    
+    game_over_font = pygame.font.Font('freesansbold.ttf', 72)
+    game_over_surface = game_over_font.render('GAMEOVER', False, (50, 120, 225))
+    screen.fill((75, 200, 20))
+    pygame.draw.rect(screen, (250, 175, 30), (0, 0, 800, 600), 15)
+    game_over_rect = game_over_surface.get_rect(center=(400, 200))
+    pygame.draw.rect(screen, (250, 215, 100), game_over_rect)
+    pygame.draw.rect(screen, (250, 215, 100), game_over_rect, 16)
+    screen.blit(game_over_surface, game_over_rect)
+    score_font = pygame.font.Font('freesansbold.ttf', 40)
+    score_surface = score_font.render('Final score: ' + str(score), True, (50, 120, 225))
+    score_rect = score_surface.get_rect(center=(400, 300))
+    pygame.draw.rect(screen, (250, 215, 100), score_rect)
+    pygame.draw.rect(screen, (250, 215, 100), score_rect, 16)
+    screen.blit(score_surface, score_rect)
+    if score > highScore:
+        highScore = score
+    highScore_surface = score_font.render('High Score: ' + str(highScore), True, (50, 120, 225))
+    highScore_rect = highScore_surface.get_rect(center=(400, 400))
+    pygame.draw.rect(screen, (250, 215, 100), highScore_rect)
+    pygame.draw.rect(screen, (250, 215, 100), highScore_rect, 16)
+    screen.blit(highScore_surface, highScore_rect)
+
+
+def pause_game():
+    #global score
+    #global highScore
+
+    pause_font = pygame.font.Font('freesansbold.ttf', 72)
+    pause_surface = pause_font.render('PAUSED', False, (50, 120, 225))
+    screen.fill((75, 200, 20))
+    pygame.draw.rect(screen, (250, 175, 30), (0, 0, 800, 600), 15)
+    pause_rect = pause_surface.get_rect(center=(400, 200))
+    pygame.draw.rect(screen, (250, 215, 100), pause_rect)
+    pygame.draw.rect(screen, (250, 215, 100), pause_rect, 16)
+    screen.blit(pause_surface, pause_rect)
+    resume_font = pygame.font.Font('freesansbold.ttf', 40)
+    #resume_surface = resume_font.render('Final score: ' + str(score), True, (50, 120, 225))
+    #score_rect = score_surface.get_rect(center=(400, 300))
+    #pygame.draw.rect(screen, (250, 215, 100), score_rect)
+    #pygame.draw.rect(screen, (250, 215, 100), score_rect, 16)
+    #screen.blit(score_surface, score_rect)
+    #if score > highScore:
+        #highScore = score
+    resume_surface = resume_font.render('Press Space to resume the game', True, (50, 120, 225))
+    resume_rect = resume_surface.get_rect(center=(400, 400))
+    pygame.draw.rect(screen, (250, 215, 100), resume_rect)
+    pygame.draw.rect(screen, (250, 215, 100), resume_rect, 16)
+    screen.blit(resume_surface, resume_rect)
+
+def displayScore():
+    scoreFont = pygame.font.Font('freesansbold.ttf', 32)
+    scoreText = scoreFont.render('Score: ' + str(score), True, 'white')
+    scoreRect = scoreText.get_rect(center=(700, 560))
+    screen.blit(scoreText, scoreRect)
+
+
+def drawScreen():
+    screen.fill((75, 200, 20))
+    draw_web1(web1_list)
+    draw_web2(web2_list)
+    draw_ghost1(ghost_list1)
+    draw_ghost2(ghost_list2)
+    pygame.draw.rect(screen, (250, 175, 30), (0, 0, 800, 600), 15)
+    drawPickup(ammoStock)
+    screen.blit(spider1.surface, spider1.rect)
+    screen.blit(spider2.surface, spider2.rect)
+    displayAmmo()
+    displayScore()
+
+
+#Background Sound
+mixer.music.load('Round Waves.wav')
+mixer.music.play(-1)
+mixer.music.set_volume(0.3)
+pygame.display.set_caption("LADYBUG A BOO!")
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+ladybug = Player()
+
+spider1 = Enemy('spider.png', 60, 200, 4)
+spider2 = Enemy('spider.png', 740, 400, 4)
+spider1_movement = 4
+spider2_movement = 4
+web_surface = pygame.image.load('cobweb.png').convert_alpha()
+web1_list = []
+web2_list = []
+
+xpos1, ypos1 = (-100, random.randint(-100, 700))
+xpos2, ypos2 = (910, random.randint(-100, 700))
+ghost_surface1 = pygame.image.load('ghost.png').convert_alpha()
+ghost_surface2 = pygame.transform.flip(ghost_surface1, True, False)
+ghost_movement = 2
+ghost_list1 = []
+ghost_list2 = []
+numAmmo = ladybug.ammoTotal
+score = 0
+highScore = 0
+pygame.mouse.set_visible(True)
+'''
+crosshair = Crosshair('cross_red_small.png')
+crosshair_group = pygame.sprite.Group()
+crosshair_group.add(crosshair)
+'''
+ammoPickup = pygame.image.load('sphere.png').convert_alpha()
+death_token = True
+ammoStock = []
+
+SPAWNPICKUP = pygame.USEREVENT
+pygame.time.set_timer(SPAWNPICKUP, 2000)
+spawn_ammo = 'wait'
+WEBSPAWN1 = pygame.USEREVENT + 1
+pygame.time.set_timer(WEBSPAWN1, 2000)
+WEBSPAWN2 = pygame.USEREVENT + 2
+pygame.time.set_timer(WEBSPAWN2, 2000)
+GHOSTSPAWN1 = pygame.USEREVENT + 3
+pygame.time.set_timer(GHOSTSPAWN1, 2300)
+GHOSTSPAWN2 = pygame.USEREVENT + 4
+pygame.time.set_timer(GHOSTSPAWN2, 1900)
+
+gameover = False
+pauseGame = False
+
+while True:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                pygame.quit()
+                sys.exit()
+            if event.key == pygame.K_SPACE and gameover:
+                gameover = False
+                death_token = True
+                ladybug.rect.x = 400
+                ladybug.rect.y = 275
+                ladybug.ammo.clear()
+                ladybug.ammoTotal = 0
+                web1_list.clear()
+                web2_list.clear()
+                ghost_list1.clear()
+                ghost_list2.clear()
+                ammoStock.clear()
+                score = 0
+                ladybug.bullets.clear()
+                ghost_movement = 2
+
+        if event.type == SPAWNPICKUP:
+            spawn_ammo = 'ready'
+        if event.type == WEBSPAWN1:
+            web1_list.append(create_web1())
+        if event.type == WEBSPAWN2:
+            web2_list.append(create_web2())
+        if event.type == GHOSTSPAWN1:
+            ghost_list1.append(create_ghost1())
+            if score >= 30:
+                ghost_list1.append(create_ghost1())
+                ghost_list1.append(create_ghost1())
+                ghost_list1.append(create_ghost1())
+                ghost_list1.append(create_ghost1())
+            elif score >= 20:
+                ghost_list1.append(create_ghost1())
+                ghost_list1.append(create_ghost1())
+                ghost_list1.append(create_ghost1())
+            elif score >= 10:
+                ghost_list1.append(create_ghost1())
+                ghost_list1.append(create_ghost1())
+        if event.type == GHOSTSPAWN2:
+            ghost_list2.append(create_ghost2())
+            if score >= 30:
+                ghost_list2.append(create_ghost2())
+                ghost_list2.append(create_ghost2())
+                ghost_list2.append(create_ghost2())
+                ghost_list2.append(create_ghost2())
+            elif score >= 20:
+                ghost_list2.append(create_ghost2())
+                ghost_list2.append(create_ghost2())
+                ghost_list2.append(create_ghost2())
+            elif score >= 10:
+                ghost_list2.append(create_ghost2())
+                ghost_list2.append(create_ghost2())
+
+    activeKey = pygame.key.get_pressed()
+    if activeKey[pygame.K_w]:
+        ladybug.move(0, -1)
+    if activeKey[pygame.K_s]:
+        ladybug.move(0, 1)
+    if activeKey[pygame.K_a]:
+        ladybug.move(-1, 0)
+    if activeKey[pygame.K_d]:
+        ladybug.move(1, 0)
+    if activeKey[pygame.K_SPACE ]:
+        pauseGame = True
+
+    if ladybug.rect.x > 720:
+        ladybug.rect.x = 720
+    if ladybug.rect.x < 18:
+        ladybug.rect.x = 18
+    if ladybug.rect.y > 520:
+        ladybug.rect.y = 520
+    if ladybug.rect.y < 18:
+        ladybug.rect.y = 18
+
+    mouse = pygame.mouse.get_pressed()
+    if mouse[0]:
+        ladybug.shoot()
+
+    drawScreen()
+
+    if spawn_ammo == 'ready':
+        ammoPickup_rect = createAmmo()
+        ammoStock.append(ammoPickup_rect)
+        spawn_ammo = 'wait'
+
+    pickup(ammoStock)
+
+    spider1.rect.y += spider1_movement
+    if spider1.rect.bottom >= 570:
+        spider1_movement = -4
+    if spider1.rect.top <= 15:
+        spider1_movement = 4
+
+    spider2.rect.y -= spider2_movement
+    if spider2.rect.bottom >= 570:
+        spider2_movement = 4
+    if spider2.rect.top <= 15:
+        spider2_movement = -4
+    screen.blit(ladybug.surface, ladybug.rect)
+
+    slower1 = slow_collision1(web1_list)
+    slower2 = slow_collision2(web2_list)
+
+    if slower1 or slower2:
+        ladybug.speed = 5
+    else:
+        ladybug.speed = 10
+
+    ladybug.update()
+    
+
+    if score >= 10:
+        ghost_movement = score / 3
+
+    for i in ladybug.bullets:
+        if killGhost1(ghost_list1, i):
+            ladybug.bullets.remove(i)
+    for i in ladybug.bullets:
+        if killGhost2(ghost_list2, i):
+            ladybug.bullets.remove(i)
+
+    death = death_collision1(ghost_list1, ghost_list2)
+    while pauseGame:
+        pause_game()
+        if activeKey[pygame.K_SPACE]:
+            pauseGame = False
+    if death:
+        gameover = True
+    if gameover:
+        game_over()
+
+    #    crosshair_group.draw(crosshair)
+    #   crosshair_group.update()
+
+    pygame.display.update()
+    clock.tick(30)
+
+
